@@ -1,5 +1,5 @@
 const process = require("node:process");
-const https = require("node:https");
+const https = require("node:http");
 const fs = require("node:fs");
 
 // --------------------------- //
@@ -106,14 +106,14 @@ async function init() {
   console.log(`Generated total of ${targets.length} targets.`);
 
   for await (const target of targets) {
-    const url = `https://login.sepahangostar.com/sendSmsViaURL.aspx?userName=${username}&password=${password}&domainName=sepahansms&smsText=${text}&reciverNumber=${target}&senderNumber=${number}`;
+    const url = `http://login.sepahangostar.com/sendSmsViaURL.aspx?userName=${username}&password=${password}&domainName=sepahansms&smsText=${text}&reciverNumber=${target}&senderNumber=${number}`;
     let success;
     let err;
 
     try {
       const res = await sendRequest(url);
-      success = parseInt(res.split("\n")[0]) > 0 ? true : false;
-      if (!success) err = "(code " + res.split("\n")[0].trim().toString() + ")";
+      success = parseInt(res.split("\n")[0].replaceAll("undefined", "")) > 0 ? true : false;
+      if (!success) err = "(code " + res.split("\n")[0].replaceAll("undefined", "").trim().toString() + ")";
     } catch (err) {
       success = false;
       err = "(code NETWORK)";
