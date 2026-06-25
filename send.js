@@ -10,6 +10,9 @@ let password;
 let number;
 let range = { start: 0, end: 0 };
 let text;
+let targetsFile;
+let method;
+const methods = { single: 0, range: 1, file: 2 };
 
 // --------------------------- //
 // -->  State management
@@ -19,9 +22,12 @@ const states = {
   getUsername: 0,
   getPassword: 1,
   getNumber: 2,
-  getRangeStart: 3,
-  getRangeEnd: 4,
-  getText: 5,
+  getMethod: 3,
+  getSingle: 4,
+  getRangeStart: 5,
+  getRangeEnd: 6,
+  getTargetsFile: 7,
+  getText: 8,
 };
 
 // --------------------------- //
@@ -68,24 +74,62 @@ process.stdin.on("data", (chunk) => {
     case states.getNumber: {
       number = data;
       state++;
-      process.stdout.write("[04] Enter Range [start] : ");
+      process.stdout.write("[04] Enter Method :\n * Single [0]\n * Batch (range) [1]\n * Batch (.txt file) [2]\n Select one of the options : ");
+      break;
+    }
+    case states.getMethod: {
+      method = parseInt(data);
+
+      if (method === methods.single) {
+        process.stdout.write("[05] Enter Target Number : ");
+        state = states.getSingle;
+      }
+
+      if (method === methods.range) {
+        process.stdout.write("[05] Enter Range [start] : ");
+        state = states.getRangeStart;
+      }
+
+      if (method === methods.file) {
+        process.stdout.write("[05] Enter Targets file name (eg. targets.txt) [file must be in cwd path] : ");
+        state = states.getTargetsFile;
+      }
+
+      break;
+    }
+    case states.getSingle: {
+      range.start = parseInt(data) || 0;
+      range.end = parseInt(data) || 0;
+      state = states.getText;
+      process.stdout.write("[06] Enter Text file name (eg. text.txt) [file must be in cwd path] : ");
       break;
     }
     case states.getRangeStart: {
       range.start = parseInt(data) || 0;
-      state++;
-      process.stdout.write("[05] Enter Range [end] : ");
+      process.stdout.write("[06] Enter Range [end] : ");
+      state = states.getRangeEnd;
       break;
     }
     case states.getRangeEnd: {
       range.end = parseInt(data) || 0;
-      state++;
+      process.stdout.write("[07] Enter Text file name (eg. text.txt) [file must be in cwd path] : ");
+      state = states.getText;
+      break;
+    }
+    case states.getTargetsFile: {
+      try {
+        targetsFile = fs.readFileSync(data || "targets.txt", { encoding: "utf-8" });
+      } catch (err) {
+        console.log("[ERROR] No file found for targets data. Please ensure file exists in the cwd path.");
+        process.exit(0);
+      }
       process.stdout.write("[06] Enter Text file name (eg. text.txt) [file must be in cwd path] : ");
+      state = states.getText;
       break;
     }
     case states.getText: {
       try {
-        text = fs.readFileSync(data, { encoding: "utf-8" });
+        text = fs.readFileSync(data || "text.txt", { encoding: "utf-8" });
       } catch (err) {
         console.log("[ERROR] No file found for text data. Please ensure file exists in the cwd path.");
         process.exit(0);
@@ -102,7 +146,10 @@ process.stdin.on("data", (chunk) => {
 // --------------------------- //
 async function init() {
   let counter = 1;
-  const targets = getTargets();
+  let targets;
+
+  if (method === methods.single || method === methods.range) targets = getTargets();
+  else if (method === methods.file) targets = targetsFile.split("\n").map((t) => t.trim());
   console.log(`Generated total of ${targets.length} targets.`);
 
   for await (const target of targets) {
@@ -113,13 +160,13 @@ async function init() {
     try {
       const res = await sendRequest(url);
       success = parseInt(res.split("\n")[0].replaceAll("undefined", "")) > 0 ? true : false;
-      if (!success) err = "(code " + res.split("\n")[0].replaceAll("undefined", "").trim().toString() + ")";
+      if (!success) err = " (code " + res.split("\n")[0].replaceAll("undefined", "").trim().toString() + ")";
     } catch (err) {
       success = false;
-      err = "(code NETWORK)";
+      err = " (code NETWORK)";
     }
 
-    console.log(`${counter} of ${targets.length} was sent with ${success ? "SUCCESS" : "FAILURE" + err}`);
+    console.log(`${counter} of ${targets.length} was sent with ${success ? "SUCCESS" : "FAILURE" + err} [${target}]`);
     counter++;
   }
 
